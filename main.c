@@ -253,8 +253,8 @@ int main(int argc, char **argv){
 		exit(-1);
 	}
 	
-// 	openlog("deleter",LOG_ERR, LOG_DAEMON);
-// 	daemonize();
+	openlog("deleter",LOG_ERR, LOG_DAEMON);
+	daemonize();
 	/**At begining clean fs*/
 	clean_fs(argv[1]);
 	return (wait_for_write_fs(argv[1],(callback)clean_fs));
