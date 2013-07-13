@@ -13,12 +13,14 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <sys/inotify.h>
+#include <time.h>
+
 
 #define INFO(...) syslog(LOG_INFO, __VA_ARGS__)
 #define ERR(...) syslog(LOG_ERR, __VA_ARGS__)
 #define BUG(...) syslog(LOG_CRIT, __VA_ARGS__)
-//#define DEBUG(...) syslog(LOG_CRIT, __VA_ARGS__)
-#define DEBUG(...) printf( __VA_ARGS__)
+#define DEBUG(...) syslog(LOG_CRIT, __VA_ARGS__)
+// #define DEBUG(...) printf( __VA_ARGS__)
 
 #define PID_FILE "/tmp/deleter.pid"
 static int lfp =0;
@@ -77,14 +79,18 @@ int make_file_path(const char* path,const char* file_name, char* abs_path){
 	}
 }
 
+static time_t file_time=0;
+
 time_t get_older_file (const char* path,char* buf){
 	DIR           *d;
 	struct dirent *dir;
 	struct stat s;
 	char* older_file;
 	char file[256];
-	time_t file_time=0;
 	
+	if (!file_time)
+		file_time=time(0);
+
 	if (buf)
 		older_file=buf;
 	else{
@@ -94,23 +100,22 @@ time_t get_older_file (const char* path,char* buf){
 	
 	d = opendir(path);
 	if (d){
-		DEBUG("Dir oppened [%s]",path);
+		DEBUG("\tDir oppened [%s]\n\n",path);
 		while ((dir = readdir(d)) != NULL){
 			if (!strncmp(".",dir->d_name,1) || !strncmp("..",dir->d_name,2))
 				continue;
 			make_file_path(path,dir->d_name,file);
 			if (stat(file,&s))
 				continue;
-			DEBUG("File is [%s]", dir->d_name);
-			DEBUG(" Time is [%li]",s.st_mtime);
-			DEBUG(" Size is [%li]\n",s.st_size);
 			if (S_ISDIR(s.st_mode)){
 				file_time=get_older_file(file,older_file);
 				if (!file_time)
 					continue;
-			}else if (s.st_mtime>file_time){
+			}else if (s.st_mtime<file_time){
 				file_time=s.st_mtime;
 				DEBUG("OLDER [%s]",file);
+				DEBUG(" Time is [%li]",s.st_mtime);
+				DEBUG(" Size is [%li]\n\n",s.st_size);
 				strcpy(older_file,file);
 			}
 		}
