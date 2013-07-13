@@ -169,15 +169,15 @@ bool clean_empty_dir(const char* path){
 time_t free_device (const char* path, int percent_to_get_free){
 
 	char file[256];
-	time_t file_time=0;
 
 	DEBUG("Freeing space on %s\n",path);
 	while (get_free_space(path)<percent_to_get_free){
 		get_older_file(path,file);
 		DEBUG("Deleting %s\n",file);
+		file_time=0;
 		unlink(file);
 	}
-	return file_time;
+	return 0;
 }
 static int percent=10;
 typedef int (*callback)(const char*);
