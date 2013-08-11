@@ -19,14 +19,21 @@
 #define INFO(...) syslog(LOG_INFO, __VA_ARGS__)
 #define ERR(...) syslog(LOG_ERR, __VA_ARGS__)
 #define BUG(...) syslog(LOG_CRIT, __VA_ARGS__)
-#define DEBUG(...) syslog(LOG_CRIT, __VA_ARGS__)
-// #define DEBUG(...) printf( __VA_ARGS__)
+
+#ifdef DAEMON
+	#define DEBUG(...) syslog(LOG_CRIT, __VA_ARGS__)
+#else
+	#define DEBUG(...) printf( __VA_ARGS__)
+#endif
 
 #define PID_FILE "/tmp/deleter.pid"
 static int lfp =0;
 
 void daemonize(void)
 {
+#ifndef DAEMON
+	return;
+#else
 	int i;
 	char str[10];
 	
@@ -48,7 +55,7 @@ void daemonize(void)
 	/* first instance continues */
 	sprintf(str,"%d\n",getpid());
 	write(lfp,str,strlen(str)); /* record pid to lockfile */
-
+#endif
 }
 
 /**Return percent usage*/
@@ -137,6 +144,7 @@ bool clean_empty_dir(const char* path){
 	
 	d = opendir(path);
 	if (d){
+		DEBUG("Clear Dir  [%s]\n",path);
 		DEBUG("Dir oppened [%s]\n",path);
 		while ((dir = readdir(d)) != NULL){
 			if (!strncmp(".",dir->d_name,1) || !strncmp("..",dir->d_name,2))
@@ -175,7 +183,12 @@ time_t free_device (const char* path, int percent_to_get_free){
 		get_older_file(path,file);
 		DEBUG("Deleting %s\n",file);
 		file_time=0;
+#ifndef TEST
 		unlink(file);
+#else
+		DEBUG("Deleting File %s\n",file);
+		exit(0);
+#endif
 	}
 	return 0;
 }
