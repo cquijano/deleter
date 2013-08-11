@@ -87,13 +87,14 @@ int make_file_path(const char* path,const char* file_name, char* abs_path){
 }
 
 static time_t file_time=0;
+static char file[256];
 
 time_t get_older_file (const char* path,char* buf){
 	DIR           *d;
 	struct dirent *dir;
 	struct stat s;
 	char* older_file;
-	char file[256];
+	
 	
 	if (!file_time)
 		file_time=time(0);
