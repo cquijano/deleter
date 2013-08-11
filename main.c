@@ -15,18 +15,17 @@
 #include <sys/inotify.h>
 #include <time.h>
 
+#define DAEMON
 
 #define INFO(...) syslog(LOG_INFO, __VA_ARGS__)
 #define ERR(...) syslog(LOG_ERR, __VA_ARGS__)
 #define BUG(...) syslog(LOG_CRIT, __VA_ARGS__)
 
-// #ifdef DAEMON
-// 	#define DEBUG(...) syslog(LOG_CRIT, __VA_ARGS__)
-// #else
-// 	#define DEBUG(...) printf( __VA_ARGS__)
-// #endif
-
-#define DEBUG(...) syslog(LOG_INFO, __VA_ARGS__)
+#ifdef DAEMON
+	#define DEBUG(...) syslog(LOG_CRIT, __VA_ARGS__)
+#else
+	#define DEBUG(...) printf( __VA_ARGS__)
+#endif
 
 #define PID_FILE "/tmp/deleter.pid"
 static int lfp =0;

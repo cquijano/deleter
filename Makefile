@@ -1,5 +1,5 @@
 ifndef CFLAGS
-CFLAGS = -g3 -Wall -I./ -L./ -L/usr/lib -L/usr/local/lib/ -Wl,-rpath /usr/local/lib/ -DDAEMON
+CFLAGS = -g3 -Wall -I./ -L./ -L/usr/lib -L/usr/local/lib/ -Wl,-rpath /usr/local/lib/
 endif
 ifndef LIBS
 LIBS = 
