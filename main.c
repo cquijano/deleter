@@ -17,7 +17,7 @@
 /*Get opt*/
 #include <unistd.h>
 
-// #define DAEMON
+#define DAEMON
 
 #define INFO(...) syslog(LOG_INFO, __VA_ARGS__)
 #define ERR(...) syslog(LOG_ERR, __VA_ARGS__)
@@ -84,6 +84,7 @@ int get_free_space(const char* path){
 }
 
 int make_file_path(const char* path,const char* file_name, char* abs_path){
+	abs_path[0]=0;
 	if (path[strlen(path)-1]=='/')
 		return (sprintf(abs_path,"%s%s",path,file_name));
 	else{
@@ -101,8 +102,12 @@ time_t get_older_file (const char* path,char* buf){
 	char file[256];
 	
 	
-	if (!file_time)
+	if (stat(older_file,&s)){
+		/*Older file do not exits , may be deleted*/
 		file_time=time(0);
+		older_file[0]=0;
+	}
+		
 	
 	d = opendir(path);
 	if (d){
@@ -111,12 +116,11 @@ time_t get_older_file (const char* path,char* buf){
 			if (!strncmp(".",dir->d_name,1) || !strncmp("..",dir->d_name,2))
 				continue;
 			make_file_path(path,dir->d_name,file);
+// 			DEBUG("\t\tChecking File %s\n",file);
 			if (stat(file,&s))
 				continue;
 			if (S_ISDIR(s.st_mode)){
-				file_time=get_older_file(file,NULL);
-				if (!file_time)
-					continue;
+				get_older_file(file,NULL);
 			}else if (s.st_mtime<file_time){
 				file_time=s.st_mtime;
 				strcpy(older_file,file);
@@ -181,12 +185,10 @@ time_t free_device (const char* path, int percent_to_get_free){
 	char file[256];
 
 	DEBUG("Freeing space on %s space_free[%i] requierd_percent[%i]\n",path,get_free_space(path),percent_to_get_free);
-	get_older_file(path,file);
 	while (get_free_space(path)<percent_to_get_free){
 		DEBUG("Getting older file \n");
 		get_older_file(path,file);
 		DEBUG("Deleting %s\n",file);
-		file_time=0;
 		if (!test)
 			unlink(file);
 		else
