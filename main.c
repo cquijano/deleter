@@ -88,24 +88,17 @@ int make_file_path(const char* path,const char* file_name, char* abs_path){
 }
 
 static time_t file_time=0;
-static char file[256];
+static char older_file[256];
 
 time_t get_older_file (const char* path,char* buf){
 	DIR           *d;
 	struct dirent *dir;
 	struct stat s;
-	char* older_file;
+	char file[256];
 	
 	
 	if (!file_time)
 		file_time=time(0);
-
-	if (buf)
-		older_file=buf;
-	else{
-		char _buf[256];
-		older_file=_buf;
-	}
 	
 	d = opendir(path);
 	if (d){
@@ -117,21 +110,24 @@ time_t get_older_file (const char* path,char* buf){
 			if (stat(file,&s))
 				continue;
 			if (S_ISDIR(s.st_mode)){
-				file_time=get_older_file(file,older_file);
+				file_time=get_older_file(file,NULL);
 				if (!file_time)
 					continue;
 			}else if (s.st_mtime<file_time){
 				file_time=s.st_mtime;
+				strcpy(older_file,file);
 				DEBUG("OLDER [%s]",file);
 				DEBUG(" Time is [%li]",s.st_mtime);
 				DEBUG(" Size is [%li]\n\n",s.st_size);
-				strcpy(older_file,file);
 			}
 		}
 		closedir(d);
 	}else{
 		ERR("No Dir\n");
 		return 0;
+	}
+	if (buf){
+		strcpy(buf,older_file);
 	}
 	return file_time;
 }
