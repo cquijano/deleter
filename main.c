@@ -14,8 +14,10 @@
 #include <errno.h>
 #include <sys/inotify.h>
 #include <time.h>
+/*Get opt*/
+#include <unistd.h>
 
-#define DAEMON
+// #define DAEMON
 
 #define INFO(...) syslog(LOG_INFO, __VA_ARGS__)
 #define ERR(...) syslog(LOG_ERR, __VA_ARGS__)
@@ -28,7 +30,9 @@
 #endif
 
 #define PID_FILE "/tmp/deleter.pid"
+
 static int lfp =0;
+static int test=0;
 
 void daemonize(void)
 {
@@ -75,7 +79,7 @@ int get_free_space(const char* path){
 				) / (blocks_used + s.f_bavail);
 	}
 	DEBUG("Space used %u\n",blocks_percent_used);
-	DEBUG("free Space used %u\n",100-blocks_percent_used);
+	DEBUG("free Space used %u\n",100-blocks_percent_used);	
 	return (100-blocks_percent_used);
 }
 
@@ -176,17 +180,17 @@ time_t free_device (const char* path, int percent_to_get_free){
 
 	char file[256];
 
-	DEBUG("Freeing space on %s\n",path);
+	DEBUG("Freeing space on %s space_free[%i] requierd_percent[%i]\n",path,get_free_space(path),percent_to_get_free);
+	get_older_file(path,file);
 	while (get_free_space(path)<percent_to_get_free){
+		DEBUG("Getting older file \n");
 		get_older_file(path,file);
 		DEBUG("Deleting %s\n",file);
 		file_time=0;
-#ifndef TEST
-		unlink(file);
-#else
-		DEBUG("Deleting File %s\n",file);
-		exit(0);
-#endif
+		if (!test)
+			unlink(file);
+		else
+			DEBUG("Deleting File %s\n",file);
 	}
 	return 0;
 }
@@ -244,8 +248,7 @@ int clean_fs(const char* path){
 	return 0;
 }
 
-int check_values(const char* path,const char* strpercent){
-	percent= atoi(strpercent);
+int check_values(const char* path,int percent){
 	if (percent<0 || percent > 99)
 		return 0;/*bat argument*/
 	struct stat s;
@@ -256,15 +259,39 @@ int check_values(const char* path,const char* strpercent){
 }
 
 void print_usage(const char* arg){
-	printf("%s path_to_file percent\n",arg);
+	printf("%s Keep size constant in a drive, deleting files \n -p\tpath dir to wach\n -s\t percent of the drive to keep free \n -t\t test mode delete nothing\n" , arg);
 }
 
 int main(int argc, char **argv){
-	if ( !argv[1] || !argv[2] ){
-		print_usage(argv[0]);
-		exit(-1);
+	/*options are, path , size (in %), test mode(flag)*/
+	/*ps and s are needed*/
+	int c=0;
+	
+	char * path;
+	while ((c = getopt (argc, argv, "p:s:t")) != -1){
+		switch (c)
+		{
+			case 't':
+				test = 1;
+			break;
+			case 'p':
+             			path = optarg;
+             		break;
+			case 's':
+             			percent = atoi(optarg);
+             		break;
+			default:
+				print_usage(argv[0]);
+				exit(EXIT_FAILURE);
+		}
 	}
-	if (!check_values(argv[1],argv[2])){
+
+	if ( !path || !percent ){
+		print_usage(argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	if (!check_values(path,percent)){
 		print_usage(argv[0]);
 		exit(-1);
 	}
@@ -272,6 +299,6 @@ int main(int argc, char **argv){
 	openlog("deleter",LOG_ERR, LOG_DAEMON);
 	daemonize();
 	/**At begining clean fs*/
-	clean_fs(argv[1]);
-	return (wait_for_write_fs(argv[1],(callback)clean_fs));
+	clean_fs(path);
+	return (wait_for_write_fs(path,(callback)clean_fs));
 }
