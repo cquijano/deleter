@@ -1,3 +1,4 @@
+#define _FILE_OFFSET_BITS 64
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -16,7 +17,6 @@
 #include <time.h>
 /*Get opt*/
 #include <unistd.h>
-
 #define DAEMON
 
 #define INFO(...) syslog(LOG_INFO, __VA_ARGS__)
