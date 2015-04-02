@@ -31,8 +31,9 @@
 
 #define PID_FILE "/tmp/deleter.pid"
 
-static int lfp =0;
+static int lfp=0;
 static int test=0;
+static int timeout=0;
 
 void daemonize(void)
 {
@@ -116,7 +117,6 @@ time_t get_older_file (const char* path,char* buf){
 			if (!strncmp(".",dir->d_name,1) || !strncmp("..",dir->d_name,2))
 				continue;
 			make_file_path(path,dir->d_name,file);
-// 			DEBUG("\t\tChecking File %s\n",file);
 			if (stat(file,&s))
 				continue;
 			if (S_ISDIR(s.st_mode)){
@@ -151,7 +151,6 @@ bool clean_empty_dir(const char* path){
 	d = opendir(path);
 	if (d){
 		DEBUG("Clear Dir  [%s]\n",path);
-		DEBUG("Dir oppened [%s]\n",path);
 		while ((dir = readdir(d)) != NULL){
 			if (!strncmp(".",dir->d_name,1) || !strncmp("..",dir->d_name,2))
 				continue;
@@ -159,7 +158,6 @@ bool clean_empty_dir(const char* path){
 			if (stat(file,&s))
 				continue;
 			if (S_ISDIR(s.st_mode)){
-				DEBUG("Doing recursive Callback [%s]\n",file);
 				clean_empty_dir(file);
 			}else{
 				empty=false;
@@ -202,32 +200,50 @@ typedef int (*callback)(const char*);
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define EVENT_BUF_LEN     ( 10 * ( EVENT_SIZE + 16 ) )
 
-int wait_for_write_fs(const char* path, callback ptr_callback)
+int wait_for_write_fs(const char* path,callback ptr_callback)
 {
 	int length, i = 0;
 	int fd;
+	fd_set rfds;
+	struct timeval tv;
 	int wd;
 	char buffer[EVENT_BUF_LEN];
 	struct inotify_event *event;
 
 	fd = inotify_init();
-
+	
 	if ( fd < 0 ) {
 		ERR( "Inotify init Error\n" );
 	}
-
 	wd = inotify_add_watch( fd, path, IN_CLOSE_WRITE );
+
+	FD_ZERO(&rfds);
+	tv.tv_usec = 0;
+
 	while (1){
 		DEBUG("Waiting for inotify event\n");
-		length = read( fd, buffer, EVENT_BUF_LEN );
-
-		if ( length < 0 ) {
-			ERR( "Error on Read" );
+		tv.tv_sec = timeout*10;
+		FD_SET(fd, &rfds);
+		if ( select(1, &rfds, NULL, NULL, &tv)<0 ){
+			ERR("Error on Select\n");
 			break;
-		}  
+		}else{
+			/*On timeout*/
+			if (!FD_ISSET(fd, &rfds)){
+				DEBUG("Select Timeout\n");
+				ptr_callback(path);
+				continue;
+			}
+		}
+		
+		length = read( fd, buffer, EVENT_BUF_LEN );
+		if ( length < 0 ) {
+			ERR( "Error on Read\n" );
+			break;
+		}
 
-		while ( i < length ) {     
-			event = ( struct inotify_event * ) &buffer[ i ];     
+		while ( i < length ) {
+			event = ( struct inotify_event * ) &buffer[ i ];
 			if ( event->len ) {
 				DEBUG( "New File %s Writed.\n", event->name );
 				ptr_callback(path);
@@ -261,7 +277,11 @@ int check_values(const char* path,int percent){
 }
 
 void print_usage(const char* arg){
-	printf("%s Keep size constant in a drive, deleting files \n -p\tpath dir to wach\n -s\t percent of the drive to keep free \n -t\t test mode delete nothing\n" , arg);
+	printf("%s Keep size constant in a drive, deleting files \n \
+	-p\t path dir to wach\n \
+	-s\t percent of the drive to keep free \n \
+	-t\t timeour in minutes\n  \
+	-a\t test mode delete nothing\n" , arg);
 }
 
 int main(int argc, char **argv){
@@ -270,18 +290,22 @@ int main(int argc, char **argv){
 	int c=0;
 	
 	char * path;
-	while ((c = getopt (argc, argv, "p:s:t")) != -1){
+	while ((c = getopt (argc, argv, "p:s:t:a")) != -1){
 		switch (c)
 		{
-			case 't':
+			case 'a':
 				test = 1;
+				break;
+			case 't':
+				timeout = atoi(optarg);
+				break;
 			break;
 			case 'p':
-             			path = optarg;
-             		break;
+				path = optarg;
+				break;
 			case 's':
-             			percent = atoi(optarg);
-             		break;
+				percent = atoi(optarg);
+				break;
 			default:
 				print_usage(argv[0]);
 				exit(EXIT_FAILURE);
