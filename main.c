@@ -222,7 +222,7 @@ int wait_for_write_fs(const char* path,callback ptr_callback)
 
 	while (1){
 		DEBUG("Waiting for inotify event\n");
-		tv.tv_sec = timeout*10;
+		tv.tv_sec = timeout*60;
 		FD_SET(fd, &rfds);
 		if ( select(1, &rfds, NULL, NULL, &tv)<0 ){
 			ERR("Error on Select\n");
